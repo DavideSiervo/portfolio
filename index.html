@@ -1,0 +1,97 @@
+<!doctype html>
+<html lang="it">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="description" content="Portfolio di Davide Siervo: composizioni, installazione multimediale e videogioco." />
+    <title>Davide Siervo — Portfolio</title>
+    <link rel="stylesheet" href="styles.css" />
+  </head>
+  <body>
+    <main class="portfolio" aria-label="Portfolio di Davide Siervo">
+      <section class="panel panel-audio" aria-labelledby="audio-title">
+        <div class="visual visual-audio" aria-hidden="true">
+          <span>D</span><span>S</span>
+        </div>
+        <div class="content">
+          <p class="eyebrow">01 / Composizioni</p>
+          <h1 id="audio-title">Composizioni</h1>
+
+          <div class="tracks">
+            <article class="track">
+              <h2>D’s Scream</h2>
+              <audio controls preload="metadata">
+                <source src="assets/audio/ds-scream.mp3" type="audio/mpeg" />
+                Il browser non supporta la riproduzione audio.
+              </audio>
+              <details><summary>Descrizione</summary><p>Descrizione non ancora pubblicata.</p></details>
+            </article>
+
+            <article class="track">
+              <h2>Echo</h2>
+              <audio controls preload="metadata">
+                <source src="assets/audio/echo.mp3" type="audio/mpeg" />
+                Il browser non supporta la riproduzione audio.
+              </audio>
+              <details><summary>Descrizione</summary><p>Descrizione non ancora pubblicata.</p></details>
+            </article>
+
+            <article class="track">
+              <h2>Ondine</h2>
+              <audio controls preload="metadata">
+                <source src="assets/audio/ondine.mp3" type="audio/mpeg" />
+                Il browser non supporta la riproduzione audio.
+              </audio>
+              <details><summary>Descrizione</summary><p>Descrizione non ancora pubblicata.</p></details>
+            </article>
+          </div>
+        </div>
+      </section>
+
+      <section class="panel panel-coral" aria-labelledby="coral-title">
+        <div class="visual visual-coral">
+          <img src="assets/images/corallo.png" alt="Struttura corallina su sfondo nero" />
+        </div>
+        <div class="content">
+          <p class="eyebrow">02 / Progetto multimediale</p>
+          <h1 id="coral-title">FluCoral<br />+ Bleached</h1>
+          <nav class="project-links" aria-label="Materiali di FluCoral e Bleached">
+            <a href="assets/documents/bleached.pdf" target="_blank" rel="noopener">
+              <span>Paper — Bleached</span><span aria-hidden="true">↗</span>
+            </a>
+            <a href="https://prezi.com/view/FqwRyeGxGcN8Lloyo042/?referral_token=0M3eUZlnB3FN" target="_blank" rel="noopener">
+              <span>Installazione — Prezi</span><span aria-hidden="true">↗</span>
+            </a>
+            <a href="assets/documents/ambienti-multimodali.pdf" target="_blank" rel="noopener">
+              <span>Ambienti multimodali — PDF</span><span aria-hidden="true">↗</span>
+            </a>
+          </nav>
+        </div>
+      </section>
+
+      <section class="panel panel-game" aria-labelledby="game-title">
+        <div class="visual visual-game" aria-hidden="true">
+          <span class="harp-line">⌁</span>
+          <span class="game-mark">HH</span>
+        </div>
+        <div class="content">
+          <p class="eyebrow">03 / Videogioco</p>
+          <h1 id="game-title">HarpHero</h1>
+          <div class="game-actions">
+            <button type="button" disabled aria-describedby="play-note">Play</button>
+            <p id="play-note">Versione giocabile in preparazione.</p>
+            <a class="document-link" href="assets/documents/harphero.pdf" target="_blank" rel="noopener">
+              <span>Descrizione del progetto — PDF</span><span aria-hidden="true">↗</span>
+            </a>
+          </div>
+        </div>
+      </section>
+    </main>
+
+    <footer>
+      <span>Davide Siervo</span>
+      <a href="mailto:d.siervo@conservatoriotorino.eu">d.siervo@conservatoriotorino.eu</a>
+    </footer>
+    <script src="script.js"></script>
+  </body>
+</html>
