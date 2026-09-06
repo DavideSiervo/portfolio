@@ -2,6 +2,8 @@
 
 Portfolio per la candidatura al Biennio di Musica Elettronica del Conservatorio di Torino.
 
+La cartella `game` contiene la versione web di HarpHero realizzata con Pygbag.
+
 ## Pubblicazione con GitHub Pages
 
 1. Creare su GitHub un repository pubblico chiamato `portfolio`.
