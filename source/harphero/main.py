@@ -12,18 +12,12 @@ pygame.mixer.init()
 # MONDO DI GIOCO
 # ==========================================================
 
-# Tutta la logica del gioco avviene SEMPRE in 1920x1080.
-# La finestra/browser può invece avere qualsiasi dimensione.
-
 WORLD_WIDTH = 1920
 WORLD_HEIGHT = 1080
 FPS = 60
 
-# Superficie sulla quale viene realmente disegnato il gioco
 game_surface = pygame.Surface((WORLD_WIDTH, WORLD_HEIGHT))
 
-# Dimensione iniziale della finestra web.
-# Può essere ridimensionata senza modificare la fisica del gioco.
 window = pygame.display.set_mode(
     (960, 540),
     pygame.RESIZABLE
@@ -126,7 +120,7 @@ clock = pygame.time.Clock()
 
 
 # ==========================================================
-# FUNZIONE PER ADATTARE IL GIOCO ALLA FINESTRA
+# FUNZIONE PER ADATTARE IL GIOCO ALLA FINESTRA (chat)
 # ==========================================================
 
 def draw_scaled_game():
