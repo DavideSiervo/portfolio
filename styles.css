@@ -70,18 +70,22 @@ a { color: inherit; }
 }
 
 .visual-game {
-  display: grid;
-  place-items: center;
+  position: relative;
+  overflow: hidden;
   background: #15110f;
-  color: #f5bc68;
 }
 
 .visual-game img {
+  position: absolute;
+  inset: 0;
   width: 100%;
   height: 100%;
   display: block;
   object-fit: contain;
   object-position: center;
+  transform: scale(1.55);
+  transform-origin: center 55%;
+  image-rendering: pixelated;
 }
 
 .game-mark {
