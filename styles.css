@@ -76,6 +76,14 @@ a { color: inherit; }
   color: #f5bc68;
 }
 
+.visual-game img {
+  width: 100%;
+  height: 100%;
+  display: block;
+  object-fit: cover;
+  object-position: center;
+}
+
 .game-mark {
   font: 700 clamp(5rem, 12vw, 12rem)/1 Georgia, serif;
   letter-spacing: -.13em;
