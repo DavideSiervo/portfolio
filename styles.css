@@ -75,19 +75,6 @@ a { color: inherit; }
   background: #15110f;
 }
 
-.visual-game img {
-  position: absolute;
-  inset: 0;
-  width: 100%;
-  height: 100%;
-  display: block;
-  object-fit: contain;
-  object-position: center;
-  transform: scale(1.20);
-  transform-origin: center 55%;
-  image-rendering: pixelated;
-}
-
 .game-mark {
   font: 700 clamp(5rem, 12vw, 12rem)/1 Georgia, serif;
   letter-spacing: -.13em;
@@ -212,5 +199,13 @@ footer a:hover { color: var(--ink); }
 }
 
 .visual-game img {
-  transform: scale(1.20) !important;
+  position: absolute !important;
+  inset: 0 !important;
+  width: 100% !important;
+  height: 100% !important;
+  object-fit: contain !important;
+  object-position: center !important;
+  transform: none !important;
+  max-width: none !important;
+  max-height: none !important;
 }
