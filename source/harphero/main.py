@@ -28,7 +28,7 @@ window = pygame.display.set_mode((960, 540),pygame.RESIZABLE)
 pygame.display.set_caption("HarpHero")
 
 # ==========================================================
-# AUDIO
+# AUDIO + DIZIONARI NOTE E INTERVALLI
 # ==========================================================
 
 odyssey_sound = pygame.mixer.Sound(BASE_PATH / "odysseyC3.wav")
@@ -40,22 +40,55 @@ notes = [
     "F3",
     "G3",
     "A3",
-    "B3"
+    "B3",
+    "C4"
+]
+
+altered_notes = [
+    "C#3",
+    "D#3",
+    "F#3",
+    "G#3",
+    "A#3"
 ]
 
 note_semitones = {
     "C3": 0,
+    "C#3": 1,
     "D3": 2,
+    "D#3": 3,
     "E3": 4,
     "F3": 5,
+    "F#3": 6,
     "G3": 7,
+    "G#3": 8,
     "A3": 9,
-    "B3": 11
+    "A#3": 10,
+    "B3": 11,
+    "C4": 12
+}
+
+interval_semitones = {
+    "2m": 1,
+    "2M": 2,
+    "3m": 3,
+    "3M": 4,
+    "4G": 5,
+    "5G": 7,
+    "6m": 8,
+    "6M": 9,
+    "7m": 10,
+    "7M": 11,
+    "8G": 12
 }
 
 harp_sounds = {}
 
-for note in notes:harp_sounds[note] = pitch_sample(odyssey_sound,note_semitones[note])
+for note in notes:
+    harp_sounds[note] = pitch_sample(odyssey_sound,note_semitones[note])
+
+for note in altered_notes:
+    harp_sounds[note] = pitch_sample(odyssey_sound,note_semitones[note])
 
 # ==========================================================
 # GRAFICA
@@ -63,13 +96,13 @@ for note in notes:harp_sounds[note] = pitch_sample(odyssey_sound,note_semitones[
 
 background = pygame.image.load(BASE_PATH / "sfondo.png").convert()
 background = pygame.transform.scale(background,(WORLD_WIDTH, WORLD_HEIGHT))
-hero_image = pygame.image.load(BASE_PATH / "Eroe_idle.png").convert_alpha()
 
 # ==========================================================
 # EROE
 # ==========================================================
 
 hero_rect = pygame.Rect(0, 0, 180, 180)
+hero_image = pygame.image.load(BASE_PATH / "Eroe_idle.png").convert_alpha()
 hero_image = pygame.transform.scale(hero_image,(hero_rect.width, hero_rect.height))
 hero_rect.center = (WORLD_WIDTH // 2,WORLD_HEIGHT // 2)
 hero_life = 3
@@ -81,7 +114,9 @@ played_note = ""
 
 enemies = []
 enemy_size = 40
+enemies_killed = 0
 enemy_velocity = 3
+threshold_kill = 10
 last_spawn = 0
 spawn_interval = random.randint(1000, 3000)
 
@@ -90,13 +125,19 @@ spawn_interval = random.randint(1000, 3000)
 # ==========================================================
 
 key_to_note = {
-    pygame.K_c: "C3",
-    pygame.K_d: "D3",
-    pygame.K_e: "E3",
+    pygame.K_a: "C3",
+    pygame.K_w: "C#3",
+    pygame.K_s: "D3",
+    pygame.K_e: "D#3",
+    pygame.K_d: "E3",
     pygame.K_f: "F3",
+    pygame.K_t: "F#3",
     pygame.K_g: "G3",
-    pygame.K_a: "A3",
-    pygame.K_b: "B3"
+    pygame.K_y: "G#3",
+    pygame.K_h: "A3",
+    pygame.K_u: "A#3",
+    pygame.K_j: "B3",
+    pygame.K_k: "C4"
 }
 
 # ==========================================================
@@ -123,6 +164,40 @@ def draw_scaled_game():
     window.blit(scaled_surface,(x, y))
 
 # ==========================================================
+# MENÙ PRINCIPALE 
+# ==========================================================
+
+running = True
+difficulty = ""
+while difficulty == "":
+    for event in pygame.event.get():
+        if event.type == pygame.QUIT:
+            pygame.quit()
+            sys.exit()
+        elif event.type == pygame.KEYDOWN:
+            if event.key == pygame.K_1:
+                difficulty = "Facile"
+            elif event.key == pygame.K_2:
+                difficulty = "Intermedio"
+            elif event.key == pygame.K_3:
+                difficulty = "Difficile"
+
+    # ==========================================================
+    # GRAFICA MENÙ PRINCIPALE 
+    # ==========================================================
+
+    game_surface.blit(background,(0, 0))
+    vertical_offset = 0
+    for text in ["Harp Hero", "1: Facile", "2: Intermedio", "3: Difficile"]:
+        title_text = hud_font.render(text, True, (255, 255, 255))
+        title_rect = title_text.get_rect(center=(WORLD_WIDTH // 2, WORLD_HEIGHT // 4 + vertical_offset))
+        game_surface.blit(title_text, title_rect)
+        vertical_offset += 50
+    draw_scaled_game()
+    pygame.display.flip()
+    clock.tick(FPS)
+
+# ==========================================================
 # MAIN
 # ==========================================================
 
@@ -131,6 +206,9 @@ def main():
     global played_note
     global last_spawn
     global spawn_interval
+    global enemies_killed
+    global enemy_velocity
+    global threshold_kill
     running = True
     while running:
 
@@ -177,7 +255,11 @@ def main():
                 enemy_y = WORLD_HEIGHT
 
             enemy_rect = pygame.Rect(enemy_x,enemy_y,enemy_size,enemy_size)
-            enemy_note = random.choice(notes)
+
+            if enemies_killed < 30:
+                enemy_note = random.choice(notes)
+            else:
+                enemy_note = random.choice(notes + altered_notes)
 
             # Direzione calcolata una sola volta alla nascita (chatgpt)
             direction = pygame.Vector2(
@@ -189,25 +271,16 @@ def main():
                 direction = direction.normalize()
 
             # Posizione in virgola mobile per mantenere
-            # precisione durante il movimento
+            # precisione durante il movimento (chatgpt)
             enemy_position = pygame.Vector2(
                 enemy_rect.x,
                 enemy_rect.y
             )
 
-
-            enemy_components = [
-                enemy_rect,
-                enemy_note,
-                enemy_position,
-                direction
-            ]
-
+            enemy_components = [enemy_rect, enemy_note, enemy_position, direction]
             enemies.append(enemy_components)
-
             last_spawn = current_time
             spawn_interval = random.randint(1000, 3000)
-
 
         # ==================================================
         # MOVIMENTO NEMICI
@@ -254,13 +327,48 @@ def main():
                 nearest_distance = distance
                 nearest_enemy = enemy
 
-        # ==================================================
-        # NOTA CORRETTA
-        # ==================================================
+        # =============================================================
+        # NOTA CORRETTA + AUMENTO VELOCITÀ NEMICI + CONTROLLO VITTORIA
+        # =============================================================
 
         if nearest_enemy is not None:
             if played_note == nearest_enemy[1]:
                 enemies.remove(nearest_enemy)
+                enemies_killed += 1
+        if difficulty != "Difficile" and enemies_killed >= 100:
+            print("Hai vinto!")
+            running = False
+        if difficulty == "Facile" and enemies_killed <= 50:
+            if enemies_killed >= threshold_kill:
+                enemy_velocity += 1
+                threshold_kill += 10
+        if difficulty == "Intermedio":
+            if enemies_killed < 50 and enemies_killed >= threshold_kill:
+                enemy_velocity += 2
+                threshold_kill += 10
+                print(enemy_velocity)
+                print(enemies_killed)
+            if enemies_killed == 50 and threshold_kill == 50:
+                enemy_velocity = 9
+                threshold_kill = 60
+                print(enemy_velocity)
+                print(enemies_killed)
+            if enemies_killed > 50 and threshold_kill <= 80 and enemies_killed >= threshold_kill:
+                enemy_velocity += 3
+                threshold_kill += 10
+                print(enemy_velocity)
+                print(enemies_killed)
+        if difficulty == "Difficile":
+            if enemies_killed < 50 and enemies_killed >= threshold_kill:
+                enemy_velocity += 2
+                threshold_kill += 10
+            if enemies_killed == 50 and threshold_kill == 50:
+                enemy_velocity = 9
+                threshold_kill = 60
+            if enemies_killed > 50 and enemies_killed >= threshold_kill:
+                enemy_velocity += 3
+                threshold_kill += 10
+
         played_note = ""
 
         # ==================================================
