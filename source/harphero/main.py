@@ -2,7 +2,8 @@ import pygame
 import random
 import sys
 from pathlib import Path
-from Modulo_audio import pitch_sample
+from Modulo_audio import pitch_sample, sample_energy, sample_attack
+from Modulo_MIDI import read_midi, midi_devices, select_midi_device
 
 # ==========================================================
 # PERCORSI (chatgpt)
@@ -15,6 +16,7 @@ else:
 
 pygame.init()
 pygame.mixer.init()
+pygame.mixer.set_num_channels(32)
 
 # ==========================================================
 # MONDO DI GIOCO
@@ -31,7 +33,7 @@ pygame.display.set_caption("HarpHero")
 # AUDIO + DIZIONARI NOTE E INTERVALLI
 # ==========================================================
 
-odyssey_sound = pygame.mixer.Sound(BASE_PATH / "odysseyC3.wav")
+sample = pygame.mixer.Sound(BASE_PATH / "Hp-ord-C3-ff-N-N.wav")
 
 notes = [
     "C3",
@@ -85,10 +87,10 @@ interval_semitones = {
 harp_sounds = {}
 
 for note in notes:
-    harp_sounds[note] = pitch_sample(odyssey_sound,note_semitones[note])
+    harp_sounds[note] = pitch_sample(sample,note_semitones[note])
 
 for note in altered_notes:
-    harp_sounds[note] = pitch_sample(odyssey_sound,note_semitones[note])
+    harp_sounds[note] = pitch_sample(sample,note_semitones[note])
 
 # ==========================================================
 # GRAFICA
@@ -96,6 +98,10 @@ for note in altered_notes:
 
 background = pygame.image.load(BASE_PATH / "sfondo.png").convert()
 background = pygame.transform.scale(background,(WORLD_WIDTH, WORLD_HEIGHT))
+target_image = pygame.image.load(BASE_PATH / "mirino.png").convert_alpha()
+target_image = pygame.transform.scale(target_image,(80, 80))
+plus_one_image = pygame.image.load(BASE_PATH / "+1.png").convert_alpha()
+plus_one_image = pygame.transform.scale(plus_one_image,(120, 120))
 
 # ==========================================================
 # EROE
@@ -105,8 +111,13 @@ hero_rect = pygame.Rect(0, 0, 180, 180)
 hero_image = pygame.image.load(BASE_PATH / "Eroe_idle.png").convert_alpha()
 hero_image = pygame.transform.scale(hero_image,(hero_rect.width, hero_rect.height))
 hero_rect.center = (WORLD_WIDTH // 2,WORLD_HEIGHT // 2)
-hero_life = 3
+hero_life = 100
 played_note = ""
+interval_progress = 0
+interval_target = None
+interval_start_time = 0
+first_bicord_note = ""
+bicord_tolerance = 100
 
 # ==========================================================
 # NEMICI
@@ -115,10 +126,14 @@ played_note = ""
 enemies = []
 enemy_size = 40
 enemies_killed = 0
-enemy_velocity = 3
+enemy_speed = 1
 threshold_kill = 10
 last_spawn = 0
 spawn_interval = random.randint(1000, 3000)
+enemy_rect = pygame.Rect(0, 0, 150, 150)
+enemy_image = pygame.image.load(BASE_PATH / "Nemico_idle.png").convert_alpha()
+enemy_image = pygame.transform.scale(enemy_image,(enemy_rect.width, enemy_rect.height))
+kill_effects = []
 
 # ==========================================================
 # INPUT
@@ -169,6 +184,7 @@ def draw_scaled_game():
 
 running = True
 difficulty = ""
+show_intermediate_intro = False
 while difficulty == "":
     for event in pygame.event.get():
         if event.type == pygame.QUIT:
@@ -179,6 +195,7 @@ while difficulty == "":
                 difficulty = "Facile"
             elif event.key == pygame.K_2:
                 difficulty = "Intermedio"
+                show_intermediate_intro = True
             elif event.key == pygame.K_3:
                 difficulty = "Difficile"
 
@@ -201,21 +218,104 @@ while difficulty == "":
 # MAIN
 # ==========================================================
 
+selected_midi = False
+
+while not selected_midi:
+    for event in pygame.event.get():
+        if event.type == pygame.QUIT:
+            pygame.quit()
+            sys.exit()
+        elif event.type == pygame.KEYDOWN:
+            if event.key == pygame.K_0:
+                select_midi_device(None)
+                selected_midi = True
+            elif event.unicode.isdigit():
+                choice = int(event.unicode) - 1
+                if 0 <= choice < len(midi_devices):
+                    select_midi_device(midi_devices[choice][0])
+                    selected_midi = True
+
+    game_surface.blit(background, (0, 0))
+
+    title = hud_font.render("SELEZIONA IL DISPOSITIVO MIDI", True, (255, 215, 100))
+    game_surface.blit(title, title.get_rect(center=(WORLD_WIDTH // 2, 250)))
+
+    no_midi_text = font.render("0 - Gioca senza tastiera MIDI", True, (255, 255, 255))
+    game_surface.blit(no_midi_text, no_midi_text.get_rect(center=(WORLD_WIDTH // 2, 350)))
+
+    for i, (device_id, device_name) in enumerate(midi_devices[:9]):
+        device_text = font.render(f"{i + 1} - {device_name}", True, (255, 255, 255))
+        device_rect = device_text.get_rect(center=(WORLD_WIDTH // 2, 420 + i * 50))
+        game_surface.blit(device_text, device_rect)
+
+    draw_scaled_game()
+    pygame.display.flip()
+    clock.tick(FPS)
+    
+while show_intermediate_intro:
+    for event in pygame.event.get():
+        if event.type == pygame.QUIT:
+            pygame.quit()
+            sys.exit()
+        elif event.type == pygame.KEYDOWN:
+            if event.key == pygame.K_RETURN:
+                show_intermediate_intro = False
+            elif event.key == pygame.K_ESCAPE:
+                pygame.quit()
+                sys.exit()
+
+    game_surface.blit(background,(0, 0))
+   
+    title = hud_font.render("LIVELLO INTERMEDIO -GLI INTERVALLI-", True, (255, 215, 100))
+    game_surface.blit(title, title.get_rect(center=(WORLD_WIDTH // 2, 100)))
+
+    intro_lines = [
+        "Un intervallo musicale e' la distanza in altezza tra due note.",
+        "Si identifica attraverso il numero di gradi e la distanza in semitoni.",
+        "",
+        "FASE 1 - INTERVALLI MELODICI (0-49 KILL)",
+        "C3 -> E3",
+        "Suona le due note una dopo l'altra, nell'ordine indicato.",
+        "",
+        "FASE 2 - BICORDI (DA 50 KILL)",
+        "(C3, E3)",
+        "Suona le due note contemporaneamente.",
+        "",
+        "Segui il mirino per individuare il nemico da eliminare.",
+        "",
+        "PREMI INVIO PER INIZIARE"
+    ]
+
+    for i, line in enumerate(intro_lines):
+        color = (255, 215, 100) if "FASE" in line or "PREMI INVIO" in line else (255, 255, 255)
+        text = font.render(line, True, color)
+        text_rect = text.get_rect(center=(WORLD_WIDTH // 2, 270 + i * 45))
+        game_surface.blit(text, text_rect)
+
+    draw_scaled_game()
+    pygame.display.flip()
+    clock.tick(FPS)
+
 def main():
     global hero_life
     global played_note
+    global interval_progress
+    global interval_target
+    global interval_start_time
+    global first_bicord_note
     global last_spawn
     global spawn_interval
     global enemies_killed
-    global enemy_velocity
+    global enemy_speed
     global threshold_kill
     running = True
-    while running:
 
         # ==================================================
         # EVENTI
         # ==================================================
-
+   
+    while running:
+        played_notes = []
         for event in pygame.event.get():
             if event.type == pygame.QUIT:
                 running = False
@@ -224,14 +324,24 @@ def main():
                     running = False
                 elif event.key in key_to_note:
                     played_note = key_to_note[event.key]
-                    harp_sounds[played_note].play()
-        current_time = pygame.time.get_ticks()
-
+                    played_notes.append(played_note)
+                    processed_sound = sample_energy(harp_sounds[played_note], hero_life)
+                    processed_sound = sample_attack(processed_sound, hero_life)
+                    processed_sound.play()
+        for midi_note in read_midi():
+            played_notes.append(midi_note)
+            if midi_note in harp_sounds:
+                played_note = midi_note
+                processed_sound = sample_energy(harp_sounds[played_note], hero_life)
+                processed_sound = sample_attack(processed_sound, hero_life)
+                processed_sound.play()
+                
         # ==================================================
         # SPAWN NEMICO
         # ==================================================
-
-        if current_time - last_spawn >= spawn_interval:
+        
+        current_time = pygame.time.get_ticks()
+        if current_time - last_spawn >= spawn_interval and len(enemies) < 6:
             side = random.randint(1, 4)
 
             # SINISTRA
@@ -256,10 +366,24 @@ def main():
 
             enemy_rect = pygame.Rect(enemy_x,enemy_y,enemy_size,enemy_size)
 
-            if enemies_killed < 30:
-                enemy_note = random.choice(notes)
-            else:
-                enemy_note = random.choice(notes + altered_notes)
+            if difficulty == "Facile":
+                if enemies_killed < 30:
+                    enemy_note = random.choice(notes)
+                else:
+                    enemy_note = random.choice(notes + altered_notes)
+            elif difficulty == "Intermedio":
+                second_semitone = 13
+                while second_semitone > 12:
+                    if enemies_killed < 30:
+                        first_note = random.choice(notes)
+                    else:
+                        first_note = random.choice(notes + altered_notes)
+                    interval = random.choice(list(interval_semitones.keys()))
+                    second_semitone = note_semitones[first_note] + interval_semitones[interval]
+                for note in note_semitones:
+                    if note_semitones[note] == second_semitone:
+                        second_note = note
+                enemy_note = (first_note, second_note)
 
             # Direzione calcolata una sola volta alla nascita (chatgpt)
             direction = pygame.Vector2(
@@ -290,7 +414,7 @@ def main():
             enemy_rect = enemy[0]
             enemy_position = enemy[2]
             enemy_direction = enemy[3]
-            enemy_position += (enemy_direction * enemy_velocity)
+            enemy_position += (enemy_direction * enemy_speed)
             enemy_rect.x = round(enemy_position.x)
             enemy_rect.y = round(enemy_position.y)
 
@@ -331,42 +455,87 @@ def main():
         # NOTA CORRETTA + AUMENTO VELOCITÀ NEMICI + CONTROLLO VITTORIA
         # =============================================================
 
+        if interval_target is not None and not any(enemy is interval_target for enemy in enemies):
+            interval_progress = 0
+            interval_target = None
         if nearest_enemy is not None:
-            if played_note == nearest_enemy[1]:
-                enemies.remove(nearest_enemy)
-                enemies_killed += 1
+            if difficulty == "Facile":
+                if played_note == nearest_enemy[1]:
+                    kill_effects.append([nearest_enemy[0].centerx, nearest_enemy[0].centery, pygame.time.get_ticks()])
+                    enemies.remove(nearest_enemy)
+                    enemies_killed += 1
+            elif difficulty == "Intermedio":
+                if enemies_killed < 50:
+                    if played_note != "":
+                        if interval_progress == 0:
+                            if played_note == nearest_enemy[1][0]:
+                                interval_progress = 1
+                                interval_target = nearest_enemy
+                        elif interval_progress == 1:
+                            if played_note == interval_target[1][1]:
+                                kill_effects.append([nearest_enemy[0].centerx, nearest_enemy[0].centery, pygame.time.get_ticks()])
+                                enemies.remove(interval_target)
+                                enemies_killed += 1
+                                interval_progress = 0
+                                interval_target = None
+                            else:
+                                interval_progress = 0
+                                interval_target = None
+                else:
+                    if interval_progress == 1:
+                        if pygame.time.get_ticks() - interval_start_time > bicord_tolerance:
+                            interval_progress = 0
+                            interval_target = None
+                    for played_note in played_notes:
+                        if interval_progress == 0:
+                            if played_note in nearest_enemy[1]:
+                                interval_progress = 1
+                                interval_target = nearest_enemy
+                                interval_start_time = pygame.time.get_ticks()
+                                first_bicord_note = played_note
+                        elif interval_progress == 1:
+                            if played_note in interval_target[1] and played_note != first_bicord_note:
+                                kill_effects.append([interval_target[0].centerx, interval_target[0].centery, pygame.time.get_ticks()])
+                                enemies.remove(interval_target)
+                                enemies_killed += 1
+                                interval_progress = 0
+                                interval_target = None
+                                break
+                            else:
+                                interval_progress = 0
+                                interval_target = None
         if difficulty != "Difficile" and enemies_killed >= 100:
             print("Hai vinto!")
             running = False
         if difficulty == "Facile" and enemies_killed <= 50:
             if enemies_killed >= threshold_kill:
-                enemy_velocity += 1
+                enemy_speed += 1
                 threshold_kill += 10
         if difficulty == "Intermedio":
             if enemies_killed < 50 and enemies_killed >= threshold_kill:
-                enemy_velocity += 2
+                enemy_speed += 0.5
                 threshold_kill += 10
-                print(enemy_velocity)
+                print(enemy_speed)
                 print(enemies_killed)
             if enemies_killed == 50 and threshold_kill == 50:
-                enemy_velocity = 9
+                enemy_speed = 3
                 threshold_kill = 60
-                print(enemy_velocity)
+                print(enemy_speed)
                 print(enemies_killed)
             if enemies_killed > 50 and threshold_kill <= 80 and enemies_killed >= threshold_kill:
-                enemy_velocity += 3
+                enemy_speed += 0.5
                 threshold_kill += 10
-                print(enemy_velocity)
+                print(enemy_speed)
                 print(enemies_killed)
         if difficulty == "Difficile":
             if enemies_killed < 50 and enemies_killed >= threshold_kill:
-                enemy_velocity += 2
+                enemy_speed += 2
                 threshold_kill += 10
             if enemies_killed == 50 and threshold_kill == 50:
-                enemy_velocity = 9
+                enemy_speed = 9
                 threshold_kill = 60
             if enemies_killed > 50 and enemies_killed >= threshold_kill:
-                enemy_velocity += 3
+                enemy_speed += 3
                 threshold_kill += 10
 
         played_note = ""
@@ -388,15 +557,58 @@ def main():
         # HUD
         life_text = hud_font.render(f"Vite: {hero_life}",True,(255, 255, 255))
         game_surface.blit(life_text,(20, 20))
+        kill_text = hud_font.render(f"Kill: {enemies_killed}",True,(255, 255, 255))
+        game_surface.blit(kill_text,(20, 60))
 
         # NEMICI
         for enemy in enemies:
             enemy_rect = enemy[0]
             enemy_note = enemy[1]
-            pygame.draw.rect(game_surface,(255, 0, 0),enemy_rect)
-            text = font.render(enemy_note,True,(255, 255, 255))
-            text_rect = text.get_rect(center=(enemy_rect.centerx,enemy_rect.top - 15))
-            game_surface.blit(text,text_rect)
+            enemy_image_rect = enemy_image.get_rect(center=enemy_rect.center)
+            game_surface.blit(enemy_image,enemy_image_rect)
+            first_note_color = (255, 255, 255)
+            if difficulty == "Facile":
+                text = font.render(enemy_note,True,(255, 255, 255))
+                text_rect = text.get_rect(center=(enemy_rect.centerx,enemy_rect.top - 15))
+                game_surface.blit(text,text_rect)
+            elif difficulty == "Intermedio":
+                if enemies_killed < 50:
+                    first_note_color = (255, 255, 255)
+                    if interval_progress == 1 and interval_target is enemy:
+                        first_note_color = (0, 255, 0)
+                    first_text = font.render(enemy_note[0], True, first_note_color)
+                    arrow_text = font.render(" -> ", True, (255, 255, 255))
+                    second_text = font.render(enemy_note[1], True, (255, 255, 255))
+                    total_width = first_text.get_width() + arrow_text.get_width() + second_text.get_width()
+                    start_x = enemy_rect.centerx - total_width / 2
+                    text_y = enemy_rect.top - 35
+                    game_surface.blit(first_text, (start_x, text_y))
+                    game_surface.blit(arrow_text, (start_x + first_text.get_width(), text_y))
+                    game_surface.blit(second_text, (start_x + first_text.get_width() + arrow_text.get_width(), text_y))
+                else:
+                    interval_text = str(enemy_note)
+                    text = font.render(interval_text, True, (255, 255, 255))
+                    text_rect = text.get_rect(midbottom=(enemy_rect.centerx, enemy_rect.top - 10))
+                    game_surface.blit(text, text_rect)
+        target_enemy = nearest_enemy
+        if interval_progress == 1 and interval_target is not None:
+            target_enemy = interval_target
+        if target_enemy is not None:
+            target_rect = target_image.get_rect(center=target_enemy[0].center)
+            game_surface.blit(target_image, target_rect)
+
+        # EFFETTO +1
+
+        for effect in kill_effects[:]:
+            elapsed_time = pygame.time.get_ticks() - effect[2]
+            if elapsed_time >= 1000:
+                kill_effects.remove(effect)
+            else:
+                progress = elapsed_time / 1000
+                effecct_image = plus_one_image.copy()
+                effecct_image.set_alpha(255 * (1 - progress))
+                effect_rect = effecct_image.get_rect(center=(effect[0], effect[1] - progress * 60))
+                game_surface.blit(effecct_image, effect_rect)
 
         # EROINA
         hero_image_rect = hero_image.get_rect(center=hero_rect.center)
